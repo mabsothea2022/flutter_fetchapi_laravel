@@ -14,8 +14,19 @@ class RegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email'=>'require|unique:tbl_users,email',
-            'password'=>'require|confirmed'
+            'email' => 'required|unique:tbl_users,email',
+            'password' => 'required|confirmed'
+        ];
+    }
+
+    public function messages()
+    {
+        return [
+            'email.required' => 'Email is required',
+            'email.email' => 'Invalid email format',
+            'email.unique' => 'Email already exists',
+            'password.required' => 'Password is required',
+            'password.min' => 'Password must be at least 6 characters',
         ];
     }
 }

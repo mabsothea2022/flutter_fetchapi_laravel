@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Hash;
 // for respond
 use Illuminate\Http\Response;
 
-
+use function Laravel\Prompts\error;
 
 class AuthController extends Controller
 {
@@ -21,75 +21,106 @@ class AuthController extends Controller
      * Register user
      * @param RegisterRequest $request
      * @return JsonRespone
-    */
-    public function register(RegisterRequest $request):JsonResponse{
-        $data=$request->validate();
-        $data['password']=Hash::make($data['password']);
-        $data['username']=strtr($data['email'],'@',true);   // generate username from email
+     */
+    public function register(RegisterRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $data['password'] = Hash::make($data['password']);
+        $data['username'] = strtr($data['email'], '@', true);   // generate username from email
         $user = User::create($data);
-        $token=$user->createToken(User::USER_TOKEN);
+        $token = $user->createToken(User::USER_TOKEN);
 
         return $this->success([
-            'user'=>$user,
-            'token'=>$token->plainTextToken,
-        ],'User has been register successfully!');
+            'user' => $user,
+            'token' => $token->plainTextToken,
+        ], 'User has been register successfully!');
     }
 
-    public function login(LoginRequest $request):JsonResponse{
-        $isValid = $this->isValidCredentail($request);
+    public function login(LoginRequest $request): JsonResponse
+    {
+        // Get the email and password from the request
+        $email = $request->input('email');
+        $password = $request->input('password');
+
+        // Now you can pass email and password to isValidCredentail() method
+        $isValid = $this->isValidCredentail($email, $password);
+
         if (!$isValid['success']) {
             return $this->error($isValid['message'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $user=$isValid['user'];
-        $token=$user->createToken(User::USER_TOKEN);
+        $user = $isValid['user'];
+        $token = $user->createToken(User::USER_TOKEN);
 
         return $this->success([
-            'user'=>$user,
-            'token'=>$token->plainTextToken
-        ],'Login successfully!');
+            'user' => $user,
+            'token' => $token->plainTextToken
+        ], 'Login successfully!');
     }
 
-    private function isValidCredentail(LoginRequest $request):array{
-        // check user exit or not in over db
-        $data=$request->validate();
-        $user=User::where('email',$data['email'])->first();
-        // if null user
-        if($user===null){
+    private function isValidCredentail(string $email, string $password): array
+    {
+        // Validate the email and password
+        $data = [
+            'email' => $email,
+            'password' => $password,
+        ];
+        $validator = validator($data, [
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        // Check if validation fails
+        if ($validator->fails()) {
             return [
-                'success'=>false,
-                'message'=>'Invalid Credentail!',
+                'success' => false,
+                'message' => $validator->errors()->first(),
             ];
         }
-        // if exit user
-        if(Hash::check($data['password'],$user->password)){
+
+        // Check if the user exists
+        $user = User::where('email', $email)->first();
+
+        if (!$user) {
             return [
-                'success'=>true,
-                'user'=>$user,
-            ];
-        }else{
-            return [
-                'success'=>false,
-                'user'=>'Password is not matched',
+                'success' => false,
+                'message' => 'Invalid credentials',
             ];
         }
+
+        // Check if the password is correct
+        if (!Hash::check($password, $user->password)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid credentials',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'user' => $user,
+        ];
     }
+
+
     /**
      * User login with Token
      * @return jsonRespone
      */
-    public function loginWithToken():JsonResponse{
-        return $this->success(auth()->user(),'Login successfully!');
+    public function loginWithToken(): JsonResponse
+    {
+        return $this->success(auth()->user(), 'Login successfully!');
     }
 
     /**
      * User logout
      * @param Request $request
      * @return JsonRespone
-    */
-    public function logout(Request $request):JsonResponse{
+     */
+    public function logout(Request $request): JsonResponse
+    {
         // need delete the current tokens
         $request->user()->currentAccessToken()->delete();
-        return $this->success(null,'Logout successfully!');
+        return $this->success(null, 'Logout successfully!');
     }
 }

@@ -22,11 +22,18 @@ class ChatModel extends Model
     }
 
     // and participant has many message
-    public function message():HasMany{
+    public function messages():HasMany{
         return $this->hasMany(ChatMessage::class,'chat_id');
     }
 
     public function lastMessage():HasOne{
         return $this->hasOne(ChatMessage::class,'chat_id')->lastest('update_at');
+    }
+
+    //
+    public function scopeHasParticipants($query, int $userId){
+        return $query->whereHas('participants',function($q) use ($userId){
+            $q->where('user_id',$userId);
+        });
     }
 }
